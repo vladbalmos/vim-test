@@ -126,6 +126,9 @@ In all commands [args] are forwarded to the underlying test runner.
                                                 *test-:PHPSpec*
 :PHPSpec [args]              Uses the `phpspec` command.
 
+                                                *test-:Prove*
+:Prove [args]                Uses the `prove` command.
+
                                                 *test-:MavenTest*
 :MavenTest [args]            Uses the `mvn` `test` command.
 
@@ -152,7 +155,7 @@ docs for display customization.
 >
   let test#strategy = 'neoterm'
 <
-Dispatch.vim ~
+Dispatch ~
 
 Runs test commands with `:Dispatch`. Requires the
 [Dispatch.vim](https://github.com/tpope/vim-dispatch) plugin.
@@ -166,7 +169,7 @@ Requires the [Vimux](https://github.com/benmills/vimux) plugin (and Tmux).
 >
   let test#strategy = 'vimux'
 <
-Tslime.vim ~
+Tslime ~
 
 Runs test commands in a Tmux pane you specify. Requires the
 [Tslime.vim](https://github.com/kikijump/tslime.vim) plugin (and Tmux).
@@ -180,6 +183,14 @@ Runs test commands in a small Tmux pane. Requires the
 >
   let test#strategy = 'vtr'
 <
+<
+VimShell ~
+
+Runs test commands in a shell written in VimScript. Requires the
+[VimShell](https://github.com/Shougo/vimshell.vim) plugin.
+>
+  let test#strategy = 'vimshell'
+<
 Terminal.app / iTerm.app ~
 
 If you're in MacVim GUI, you can use this strategy to send the test commands
@@ -189,14 +200,6 @@ isn't that nice).
   let test#strategy = 'terminal'
   " or
   let test#strategy = 'iterm'
-<
-
-Vagrant ~
-
-Runs test commands with `vagrant` `ssh`. It finds the project root by extracting
-the "config.vm.synced_folder" configuration from Vagrantfile.
->
-  let test#strategy = 'vagrant'
 <
 CUSTOM STRATEGIES                               *test-custom-strategies*
 
@@ -240,6 +243,12 @@ If you want to manually configure a test runner's executable, you can do
 If you want to disable clearing the screen for some strategies, you can do
 >
   let g:test#preserve_screen = 1
+<
+You can instruct test.vim to generate absolute file paths:
+>
+  let test#filename_modifier = ':.' " test/models/user_test.rb (default)
+  let test#filename_modifier = ':p' " /User/janko/Code/my_project/test/models/user_test.rb
+  let test#filename_modifier = ':~' " ~/Code/my_project/test/models/user_test.rb
 <
 ABOUT                                           *test-about*
 

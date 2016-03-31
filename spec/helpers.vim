@@ -1,3 +1,5 @@
+let g:test#runner_commands = ['RSpec', 'Minitest', 'FireplaceTest', 'Prove']
+
 source plugin/test.vim
 
 function! Teardown() abort

@@ -1,4 +1,4 @@
-function! test#run(type, options) abort
+function! test#run(type, arguments) abort
   if &autowrite || &autowriteall
     silent! wall
   endif
@@ -15,15 +15,17 @@ function! test#run(type, options) abort
   let runner = test#determine_runner(position['file'])
 
   let args = test#base#build_position(runner, a:type, position)
-  let args = [a:options] + args
+  let args = a:arguments + args
   let args = [test#base#options(runner, a:type)] + args
 
   call test#execute(runner, args)
 endfunction
 
-function! test#run_last() abort
+function! test#run_last(arguments) abort
   if exists('g:test#last_command')
-    call test#shell(g:test#last_command)
+    let cmd = [g:test#last_command]
+    let cmd = cmd + a:arguments
+    call test#shell(join(cmd))
   else
     call s:echo_failure('No tests were run so far')
   endif
@@ -51,26 +53,31 @@ function! test#execute(runner, args) abort
 endfunction
 
 function! test#shell(cmd) abort
-  if a:cmd =~# '^:'
+  let g:test#last_command = a:cmd
+  let cmd = a:cmd
+
+  if has_key(g:, 'test#transformation')
+    let cmd = g:test#custom_transformations[g:test#transformation](cmd)
+  endif
+
+  if cmd =~# '^:'
     let strategy = 'vimscript'
   else
     let strategy = get(g:, 'test#strategy', 'basic')
   endif
 
   if has_key(g:test#custom_strategies, strategy)
-    call g:test#custom_strategies[strategy](a:cmd)
+    call g:test#custom_strategies[strategy](cmd)
   else
-    call test#strategy#{strategy}(a:cmd)
+    call test#strategy#{strategy}(cmd)
   endif
-
-  let g:test#last_command = a:cmd
 endfunction
 
 function! test#determine_runner(file) abort
   for [language, runners] in items(g:test#runners)
     for runner in runners
       let runner = tolower(language).'#'.tolower(runner)
-      if test#base#test_file(runner, a:file)
+      if test#base#test_file(runner, fnamemodify(a:file, ':.'))
         return runner
       endif
     endfor
@@ -78,12 +85,12 @@ function! test#determine_runner(file) abort
 endfunction
 
 function! test#test_file() abort
-  return !empty(test#determine_runner(expand('%:.')))
+  return !empty(test#determine_runner(expand('%')))
 endfunction
 
 function! s:get_position() abort
   return {
-    \ 'file': expand('%:.'),
+    \ 'file': expand('%'.get(g:, 'test#filename_modifier', ':.')),
     \ 'line': line('.'),
     \ 'col':  col('.'),
   \}

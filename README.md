@@ -18,30 +18,21 @@ Currently the following testing frameworks are supported:
 | **VimScript**  | VSpec, Vader.vim                      | `vspec`, `vader`                             |
 | **Lua**        | Busted                                | `busted`                                     |
 | **PHP**        | PHPUnit, Behat, PHPSpec               | `phpunit`, `behat`, `phpspec`                |
+| **Perl**       | Prove                                 | `prove`                                      |
 | **Java**       | Maven                                 | `maventest`                                  |
 
-## Idea
+## Features
 
-Since Gary Bernhardt invented testing from Vim, there have been multiple
-plugins implementing this functionality (rspec.vim, vroom.vim etc). However,
-all of these solutions have bad designs, unclear ideas and aren't extendable.
-So I decided to create test.vim, featuring:
+* Zero dependencies
+* Zero configuration required (it Does the Right Thing™, see [**Philosophy**](https://github.com/janko-m/vim-test/wiki))
+* Wide range of test runners which are automagically detected
+* **Polyfills** for nearest tests (by [constructing regexes](#commands))
+* Wide range of execution environments ("[strategies](#strategies)")
+* Fully customized CLI options configuration
+* Extendable with new runners and strategies
 
-* zero dependencies
-* zero configuration required (it Does the Right Thing™, see [**Philosophy**](https://github.com/janko-m/vim-test/wiki))
-* interface for adding new testing frameworks
-* automatic detection of correct test runner
-* **polyfill** for nearest tests (by [constructing regexes](#commands))
-* built-in integration with Dispatch/Vimux/Tslime
-* fully customized CLI options configuration
-
-Internally test.vim consists of a thoughtfully designed core, and testing
-frameworks are simply plugged in, so that they all work in the same unified
-way.
-
-Ruby users, you get all of the features of rspec.vim + vroom.vim, but
-without any of the tedious configuration (test.vim knows how you want to
-run your test command).
+Internally test.vim consists of a thoughtfully designed core, and test runners
+are simply plugged in, so that they all work in the same unified way.
 
 ## Setup
 
@@ -78,18 +69,18 @@ it like this:
 let test#strategy = "dispatch"
 ```
 
-| Strategy                                                                        | Identifier | Description                                                                      |
-| :-----:                                                                         | :-----:    | :----------                                                                      |
-| **Basic**&nbsp;(default)                                                        | `basic`    | Runs test commands with `:!`, which switches your Vim to the terminal.           |
-| **Neovim**                                                                      | `neovim`   | Runs test commands with `:terminal`, which spawns a terminal inside your Neovim. |
-| [**Neoterm**](https://github.com/kassio/neoterm)                                | `neoterm`  | Runs test commands with `:T`, see neoterm docs for display customization.        |
-| [**Dispatch.vim**](https://github.com/tpope/vim-dispatch)                       | `dispatch` | Runs test commands with `:Dispatch`.                                             |
-| [**Vimux**](https://github.com/benmills/vimux)                                  | `vimux`    | Runs test commands in a small tmux pane at the bottom of your terminal.          |
-| [**Tslime.vim**](https://github.com/kikijump/tslime.vim)                        | `tslime`   | Runs test commands in a tmux pane you specify.                                   |
-| [**Vim&nbsp;Tmux&nbsp;Runner**](https://github.com/christoomey/vim-tmux-runner) | `vtr`      | Runs test commands in a small tmux pane.                                         |
-| **Terminal.app**                                                                | `terminal` | Sends test commands to Terminal (useful in MacVim GUI).                          |
-| **iTerm2.app**                                                                  | `iterm`    | Sends test commands to iTerm2 >= 2.9 (useful in MacVim GUI).                     |
-| **Vagrant**                                                                     | `vagrant`  | Runs test commands with `vagrant ssh`.                                           |
+| Strategy                        | Identifier | Description                                                                      |
+| :-----:                         | :-----:    | :----------                                                                      |
+| **Basic**&nbsp;(default)        | `basic`    | Runs test commands with `:!`, which switches your Vim to the terminal.           |
+| **Neovim**                      | `neovim`   | Runs test commands with `:terminal`, which spawns a terminal inside your Neovim. |
+| **[Neoterm]**                   | `neoterm`  | Runs test commands with `:T`, see neoterm docs for display customization.        |
+| **[Dispatch]**                  | `dispatch` | Runs test commands with `:Dispatch`.                                             |
+| **[Vimux]**                     | `vimux`    | Runs test commands in a small tmux pane at the bottom of your terminal.          |
+| **[Tslime]**                    | `tslime`   | Runs test commands in a tmux pane you specify.                                   |
+| **[VimShell]**                  | `vimshell` | Runs test commands in a shell written in VimScript.                              |
+| **[Vim&nbsp;Tmux&nbsp;Runner]** | `vtr`      | Runs test commands in a small tmux pane.                                         |
+| **Terminal.app**                | `terminal` | Sends test commands to Terminal (useful in MacVim GUI).                          |
+| **iTerm2.app**                  | `iterm`    | Sends test commands to iTerm2 >= 2.9 (useful in MacVim GUI).                     |
 
 Some strategies clear the screen before executing the test command, but you can
 disable that by setting `g:test#preserve_screen`:
@@ -106,24 +97,41 @@ comes with many predefined strategies (see above), but if none of them suit
 your needs, you can define your own custom strategy like this:
 
 ```vim
-function! MyStrategy(cmd)
+function! EchoStrategy(cmd)
   echo 'It works! Command for running tests: ' . a:cmd
 endfunction
 
-let g:test#custom_strategies = {'my_strategy': function('MyStrategy')}
-let g:test#strategy = 'my_strategy'
+let g:test#custom_strategies = {'echo': function('EchoStrategy')}
+let g:test#strategy = 'echo'
+```
+
+## Transformations
+
+You can automatically apply transformations of your test commands by
+registering a "transformation" function. The following example demonstrates how
+you could set up a transformation for Vagrant:
+
+```vim
+function! VagrantTransform(cmd) abort
+  let vagrant_project = get(matchlist(s:cat('Vagrantfile'), '\vconfig\.vm.synced_folder ["''].+[''"], ["''](.+)[''"]'), 1)
+  return 'vagrant ssh --command '.shellescape('cd '.vagrant_project.'; '.a:cmd)
+endfunction
+
+let g:test#custom_transformations = {'vagrant': function('VagrantTransform')}
+let g:test#transformation = 'vagrant'
 ```
 
 ## Commands
 
 ![nearest polyfill](/screenshots/nearest.gif)
 
-You can execute Test.vim commands directly, and pass them CLI options:
+You can execute test.vim commands directly, and pass them CLI options:
 
 ```
 :TestNearest --verbose
 :TestFile --format documentation
 :TestSuite --fail-fast
+:TestLast --backtrace
 ```
 
 If you want some options to stick around, see [Configuring](#configuring).
@@ -140,8 +148,13 @@ test runner (which also accept options):
 :Nose --failed
 ```
 
-I found these commands to be really useful when using multiple testing
-frameworks in the same project.
+These commands are useful when using multiple testing frameworks in the same
+project, or as a wrapper around your executable. To avoid pollution they are
+not defined by default, instead you can choose the ones you want:
+
+```vim
+let g:test#runner_commands = ['Minitest', 'Mocha']
+```
 
 ## Configuring
 
@@ -181,6 +194,19 @@ certain testing framework. You can override that pattern by overriding the
 let test#ruby#minitest#file_pattern = '_spec\.rb' " the default is '_test\.rb'
 ```
 
+### Filename modifier
+
+By default test.vim generates file paths relative to the working directory. If
+you're using a strategy which sends commands to a shell which is `cd`-ed into
+another directory, you might want to change the filename modifier to generate
+absolute paths:
+
+```vim
+let test#filename_modifier = ':.' " test/models/user_test.rb (default)
+let test#filename_modifier = ':p' " /User/janko/Code/my_project/test/models/user_test.rb
+let test#filename_modifier = ':~' " ~/Code/my_project/test/models/user_test.rb
+```
+
 ### Language-specific
 
 #### Python
@@ -192,6 +218,16 @@ the first available will be chosen, but you can force a specific one:
 ``` vim
 let test#python#runner = 'pytest'
 " Runners available are 'pytest', 'nose', 'djangotest' and 'djangonose'
+```
+
+#### Ruby
+
+Unless binstubs are detected (e.g. `bin/rspec`), test commands will
+automatically be prepended with `bundle exec` if a Gemfile is detected, but you
+can turn it off:
+
+```vim
+let test#ruby#bundle_exec = 0
 ```
 
 ## Extending
@@ -257,3 +293,9 @@ Copyright © Janko Marohnić. Distributed under the same terms as Vim itself. Se
 `:help license`.
 
 [minitest]: https://github.com/janko-m/vim-test/wiki/Minitest
+[Neoterm]: https://github.com/kassio/neoterm
+[Dispatch]: https://github.com/tpope/vim-dispatch
+[Vimux]: https://github.com/benmills/vimux
+[Tslime]: https://github.com/kikijump/tslime.vim
+[Vim&nbsp;Tmux&nbsp;Runner]: https://github.com/christoomey/vim-tmux-runner
+[VimShell]: https://github.com/Shougo/vimshell.vim
